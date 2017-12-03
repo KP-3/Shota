@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+
+  <!--
+   デフォルトのスタイル
+   より見やすく変更しても良い
+  -->
+  <link rel="stylesheet" href="default.css"/>
+
+  <!--
+    SyntaxHighlighter 3.0.83 (http://alexgorbatchev.com/SyntaxHighlighter/)
+    Java のコードを読みやすくする
+  -->
+  <link rel="stylesheet" href="shCore.css"/>
+  <link rel="stylesheet" href="shThemeDjango.css"/>
+  <script src="shCore.js"></script>
+  <script src="shBrushJava.js"></script>
+  <script>SyntaxHighlighter.all();</script>
+
+  <!--
+    目次を動的に生成する
+  -->
+  <script src="outliner.js"></script>
+  <script>
+    window.addEventListener('load', function() {
+      // 第一引数: アウトライン対象の要素のセレクタ，第二引数: アウトラインを格納する要素のセレクタ．
+      new TOutliner('h2', '#outline');
+    });
+  </script>
+
+  <title>知能プログラミング演習II レポート</title>
+</head>
+
+<body>
+<header>
+  <!-- グループ番号・学籍番号・名前を書く．-->
+  <h1>グループ3 27115076 鈴木祥太</h1>
+
+  <!-- 目次生成用 -->
+  <nav id="outline"></nav>
+</header>
+
+<h2>グループ</h2>
+グループ作成書類: <a href="../Grep6/index.html">Grep6</a><br>
+メンバーと役割分担: 
+<ul>
+  <li>鈴木祥太 27115076: 課題6-2 後向き推論担当 課題6-4 GitHub詳細担当</li>
+  <li><a href="../../../../ckl15077/workspace/kprep/rep6/index.html">鈴木進也 27115077</a>: 課題6-3 担当</li>
+  <li><a href="../../../../ckl15120/workspace/kprep/rep6/index.html">丹羽貴敏 27115120</a>: 課題6-2 前向き推論担当</li>
+  <li><a href="../../../../ckl15157/workspace/kprep/rep6/index.html">横尾由春 27115157</a>: 課題6-1 課題6-4 GitHub, LINE担当</li>
+</ul>
+
+<h2>ソースファイル</h2>
+<ul>
+  <li><a href="../../BackwardChain/src/RuleBaseSystem.java">RuleBaseSystem.java</a>: 後向き推論のプログラム</li>
+  <li><a href="../../BackwardChain/src/GraphViz.java">GraphViz.java</a>: GraphVizで使用するdotファイルを記述するためのプログラム</li>
+  <li><a href="../../BackwardChain/Insect.data">Insect.data</a>: 虫に関するルールベース</li>
+  <li><a href="../../BackwardChain/InsectWm.data">InsectWm.data</a>: 後向き推論で使用するワーキングメモリ</li>
+    <!-- 実装・変更したソースファイルへのリンク．修正する． -->
+    <!-- ※ リンクは絶対パスに変更せず，上記のような相対パスのままで！ -->
+</ul>
+
+<hr>
+
+<h2>課題6-2</h2>
+<!-- 課題を書く．-->
+CarShop.data, AnimalWorld.data 等のデータファイルを実際的な応用事例に書き換えて，前向き推論，および後ろ向き推論に基づく質問応答システムを作成せよ．どのような応用事例を扱うかは，メンバーで話し合って決めること．
+なお，ユーザの質問は英語や日本語のような自然言語が望ましいが，難しければ変数を含むパターン等でも可とする．
+
+<h3>独自仕様の説明</h3>
+<!--
+ もし自分で独自に決めた仕様があれば，その説明を書く．
+-->
+<p>課題に加えて，以下の三点を独自仕様として組み込んだ．</p>
+
+<ol>
+  <li>扱うデータは虫に関するものにする</li>
+  <li>ユーザの質問は4パターンに対応する</li>
+  <li>与えられた数がフィボナッチ数かどうかを判定する</li>
+  <li>N番目のフィボナッチ数だけではなく，N番目までのフィボナッチ数列を返す</li>
+  <li>フィボナッチ数の一般項を用いてN番目のフィボナッチ数を求める</li>
+</ol>
+
+<p>
+  1.に関して，虫に関するルールベースをinsect.dataとして，ワーキングメモリをinsectWm.dataとして用意して，プログラム中でそれらのファイルを読み込む仕様とした．
+</p>
+<p>
+  2.に関して，"What is ~ ?", "Does ~ have ~ ?", "Is ~ ~ ?", "How many ~ does ~ have"という質問に対して応答する仕様とした．
+</p>
+<p>
+  2.に関しては，整数Nが与えられた時，0番目からN番目までのフィボナッチ数列を配列として返す仕様とした．
+</p>
+<p>3.に関しては……</p>
+
+<h3>プログラムの構造</h3>
+<!--  どのような設計をしたか．-->
+<p>
+  実装したプログラムは五つのクラス RuleBaseSystem, RuleBase, FileManager, Rule, Unifier で構成されている．
+</p>
+
+<h4>RuleBaseSystemクラス</h4>
+<p>
+  RuleBaseSystem クラスは main メソッド，インスタンスメソッドとして backward(), makegraph() メソッドを持つ．<br>
+  main メソッドは，実行時に与えられる引数を質問として後向き推論を実行する．<br>
+  backward() メソッドは引数としてクラス String 型の変数 wmFileName, クラス String 型の変数 rbFileName, クラス String 型の変数 hypothesis, クラス String 型の変数 que, int 型の変数 mode を取り，wmFileNameとして指定されたファイルをワーキングメモリとして，rbFileNameとして指定されたファイルをルールベースとして，後向き推論によって仮説hypothesisを検証する．後向き推論の結果によって適切な応答を行う．<br>
+  makegraph() メソッドは，GraphVizを使用して後向き推論の推論過程を可視化する．
+</p>
+
+<h4>RuleBaseクラス</h4>
+<p>
+  RuleBase クラスは コンストラクタ，インスタンスメソッドとして backwardChain(), matchingPatterns(), matchingPatternOne(), rename(), instantiate(), var() メソッドを持つ．<br>
+  コンストラクタ は引数としてクラス ArrayList 型の変数 theRules, クラス ArrayList 型の変数 theWm を取り，RuleBase クラスのインスタンスを生成する．<br>
+  backwardChain() メソッドは引数としてクラス ArrayList 型の変数 hypothesis を取り，引数として与えられた hypothesis を仮説とした後向き推論を行い，戻り値として発火したルールとアサーションが格納されているクラス ArrayList 型の変数 theFired を返す．<br>
+  matchingPatterns() メソッドは引数としたクラス ArrayList 型の変数 thePatterns, クラス HashMap 型の変数 theBinding, クラス ArrayList 型の変数 theFired を取り，与えられた全ての仮説とマッチするワーキングメモリのアサーションやルールの後件に対する変数束縛情報を再帰的に求めて，戻り値として matchingPatternOne() の結果が成功したらtrue, 失敗したらfalseを返す．<br>
+  matchingPatternOne() メソッドは引数としてクラス String 型の変数 thePattern, クラス HashMap 型の変数 theBinding, int 型の変数 cPoint, クラス ArrayList 型の変数 theFired を取り，与えられた一つの仮説を満たす変数束縛を得て，戻り値としてユニフィケーションが成功したら，成功したワーキングエレメントの番号またはルールの番号の次の番号を返し，ユニフィケーションが失敗したら，-1を返す．<br>
+  rename() メソッドは引数としてクラス Rule 型の変数 theRule を取り，戻り値として引数として与えられた theRule の中に含まれる変数をユニークな名前の変数に置き換えたルールを返す．<br>
+  instantiate() メソッドは引数としてクラス String 型の変数 thePattern, クラス HashMap 型の変数 theBindings を取り，戻り値として引数として与えられた thePattern を変数束縛情報 theBindings に従って具体化したものを返す．<br>
+  var() メソッドは引数としてクラス String 型の変数 str1 を取り，戻り値として str1 が変数ならtrueを返す．
+</p>
+
+<h4>FileManagerクラス</h4>
+<p>
+  FileManager クラスはインスタンスメソッドとして loadRules(), loadWm() メソッドを持つ．<br>
+  loadRules() メソッドは引数としてクラス String 型の変数 theFileName を取り，戻り値としてtheFileNameとして指定されたファイルから読み出したルールのリストを返す．<br>
+  loadWm() メソッドは引数としてクラス String 型の変数 theFileName を取り，戻り値としてtheFileNameとして指定されたファイルから読みだしたアサーションのリストを返す．
+</p>
+
+<h4>Ruleクラス</h4>
+<p>
+  Rule クラスは コンストラクタ，インスタンスメソッドとして getRenamedRule(), getVars(), makeRenamedVarsTable(), renameVars(), var(), getName(), toString(), getAntecedents(), getConsequent() メソッドを持つ．<br>
+  コンストラクタ は引数としてクラス String 型の変数 theName, クラス ArrayList 型の変数 theAntecedents, クラス String 型の変数 theConsequent を取り，Rule クラスのインスタンスを生成する．<br>
+  getRenamedRule() メソッドは引数として int 型の変数 uniqueNum を取り，戻り値として uniqueNum を用いて Rule クラスのインスタンスであるルールの変数をリネーミングしたルールを返す．<br>
+  getVars() メソッドは引数としてクラス String 型の変数 thePattern, クラス ArrayList 型の変数 vars を取り，戻り値として thePattern から変数を取り出したリストを返す．<br>
+  makeRenamedVarsTable() メソッドは引数としてクラス ArrayList 型の変数 vars, int 型の変数 uniqueNum を取り，戻り値として 元の変数と新たな変数の対応を保管するクラス HashMap 型の result を返す．<br>
+  renameVars() メソッドは引数としてクラス String 型の変数 thePattern, クラス HashMap 型の変数 renamedVarsTable を取り，戻り値として thePattern の中の変数を renamedVarsTable を基にして書き換えたものを返す．<br>
+  var() メソッドは引数としてクラス String 型の変数 str を取り，戻り値として str が変数ならば true を，変数でなければ false を返す．<br>
+  getName() メソッドは，戻り値として Rule クラスのインスタンスの name を返す．<br>
+  toString() メソッドは，戻り値として Rule クラスのインスタンスを文字列にしたものを返す．<br>
+  getAntecedents() メソッドは，戻り値として Rule クラスのインスタンスの antecedents を返す．<br>
+  getConsequent() メソッドは，戻り値として Rule クラスのインスタンスの consequent を返す．
+</p>
+
+<h4>Unifierクラス</h4>
+<p>
+  Unifier クラスは コンストラクタ，3引数のunify(), 2引数のunify(), tokenMatching(), varMatching(), replaceBuffer(), replaceBindings(), var() メソッドを持つ．<br>
+  コンストラクタ は，Unifier クラスのインスタンスを生成する．<br>
+  3引数のunify() メソッドは引数としてクラス String 型の変数 string1, クラス String 型の変数 string2, クラス HashMap 型の変数 theBindings を取り，戻り値として 2引数のunify() が成功したら true を，失敗したら false を返す．<br>
+  2引数のunify() メソッドは引数としてクラス String 型の変数 string1, クラス String 型の変数 string2 を取り，戻り値としてパターンマッチングが成功したら true を，失敗したら false を返す．<br>
+  tokenMatching() メソッドは引数としてクラス String 型の変数 token1, クラス String 型の変数 token2 を取り，戻り値として tokn1 と token2 のパターンマッチングに成功したら true を，失敗したら false を返す．<br>
+  varMatching() メソッドは引数としてクラス String 型の変数 vartoken, クラス String 型の変数 token を取り，戻り値として vartoken と token のパターンマッチングに成功したら true を，失敗したら false を返す．<br>
+  replaceBuffer() メソッドは引数としてクラス String 型の変数 preString, クラス String 型の変数 postString を取り，bufferに存在するpreStringという名前の変数を全てpostStringという定数に置き換える．<br>
+  replaceBindings() メソッドは引数としてクラス String 型の変数 preString, クラス String 型の変数 postString を取り，preStringをハッシュ値として持つキーのハッシュ値をpostStringに変更する．<br>
+  var() メソッドは引数としてクラス String 型の変数 str1 を取り，str1が変数なら戻り値としてtrueを返す．
+</p>
+
+
+<h3>実装の説明</h3>
+<!--
+ どう実装したか，ソースコードを詳細に説明する．
+ 特に重要な箇所はレポートにペーストして説明する．
+-->
+<h4>RuleBaseSystemクラス</h4>
+<p>
+  実装したプログラムに関して，先に挙げた RuleBaseSystem クラスが持つ main, backward(), makegraph() メソッドの説明を行う．
+</p>
+<p>
+  下記は main メソッドの実装である．ここで特筆すべき点は，実行時に与えられる引数がなかった場合のチェックを行っていることである．引数がなかった場合はこの後向き推論のプログラムに引数が必要であることをコンソールに出力する．実行時に与えられる引数を質問として，その質問の形式に応じて後向き推論で検証すべき仮説をクラス String 型の変数 hypothesis としている．質問の形式に応じて，応答文を生成する方法も変わってくるので，その質問の形式を int 型の変数 mode としている．
+</p>
+<pre class="brush: java">
+public static void main(String args[]) {
+  if (args.length != 1) {
+    System.out.println("Usage: %java RuleBaseSystem [query strings]");
+    System.out.println("Example:");
+    System.out.println(" \"?x is b\" and \"?x is c\" are queries");
+    System.out.println("  %java RuleBaseSystem \"?x is b,?x is c\"");
+  } else {
+//    fm = new FileManager();
+//    ArrayList&ltRule&gt rules = fm.loadRules("CarShop.data");
+//    ArrayList rules = fm.loadRules("AnimalWorld.data");
+//    ArrayList&ltString&gt wm = fm.loadWm("CarShopWm.data");
+//    ArrayList wm = fm.loadWm("AnimalWorldWm.data");
+//    ArrayList&ltRule&gt rules = fm.loadRules("Insect.data");
+//    ArrayList&ltString&gt wm = fm.loadWm("InsectWm.data");
+//    rb = new RuleBase(rules, wm);
+//    StringTokenizer st = new StringTokenizer(args[0], ",");
+//    ArrayList&ltString&gt queries = new ArrayList&ltString&gt();
+//    for (int i = 0; i < st.countTokens(); ) {
+//      queries.add(st.nextToken());
+//    }
+//    rb.backwardChain(queries);
+    // ファイル名指定
+    String wmFileName = "CarShopWm.data";
+    String rbFileName = "CarShop.data";
+
+    String question = args[0]; // 第1引数に検証したい仮説
+    // 正規表現のパターンを作成
+    Pattern pat1 = Pattern.compile("What is [a-z]*");
+    Matcher mat1 = pat1.matcher(question);
+    Pattern pat2 = Pattern.compile("Does [a-zA-Z]* have [a-z]*");
+    Matcher mat2 = pat2.matcher(question);
+    Pattern pat3 = Pattern.compile("Is [a-zA-Z]* [a-z]*");
+    Matcher mat3 = pat3.matcher(question);
+    Pattern pat4 = Pattern.compile("How many [a-z]* does [a-zA-Z]* have");
+    Matcher mat4 = pat4.matcher(question);
+//    Pattern pat4 = Pattern.compile("Is it [a-z]*");
+//    Matcher mat4 = pat4.matcher(args[0]);
+    String hypothesis = null;
+    String que = null;
+    String subject = null; // 主語
+    String object = null; // 目的語
+    int mode = 0;
+    if (mat1.find()) { // What is ~ ? ifのアサーションを全て出力
+      subject = question.substring(8);
+      hypothesis = "?x is " + subject;
+      mode = 1;
+    } else if (mat2.find()) { // Does ~ have ~ ?
+      subject = question.substring(5, question.indexOf("have") - 1);
+      hypothesis = "?x is a " + subject;
+      object = question.substring(question.indexOf("have") + 5);
+      que = " has " + object;
+      mode = 2;
+    } else if (mat3.find()) { // Is ~ ~ ?
+      subject = question.substring(3).substring(0, question.substring(3).indexOf(" "));
+      hypothesis = "?x is a " + subject;
+      object = question.substring(3).substring(question.substring(3).indexOf(" "));
+      que = " is a" + object;
+      mode = 3;
+    } else if (mat4.find()) { // How many ~ does ~ have ?
+      subject = question.substring(question.indexOf("does") + 5, question.indexOf("have") - 1);
+      hypothesis = "?x is a " + subject;
+      object = question.substring(9, question.indexOf("does") - 1);
+      que = " has " + object;
+      mode = 4;
+    }
+//    hypothesis = "?x is a Carolla Wagon";
+//    que = "his-car has several seats";
+    System.out.println(question);
+    System.out.println(hypothesis);
+    System.out.println(que);
+    System.out.println(Integer.toString(mode));
+    backward(wmFileName, rbFileName, hypothesis, que, mode);
+  }
+  makegraph();
+}
+</pre>
+<p>
+  下記は backward() メソッドの実装である．ここで特筆すべき点は，引数として与えられたクラス String 型の wmFileName として指定されたファイルのアサーションを FileManager クラスの loadRules() メソッドを使用して，クラス ArrayList 型の変数 rules に一つずつ格納していき，引数として与えられたクラス String 型の rbFileName として指定されたファイルのルールを FileManager クラスの loadWm() メソッドを使用して，クラス ArrayList 型の変数 wm に一つずつ格納していることである．そのようにして得た rules と wm を引数としてクラス RuleBase 型の変数 rb をインスタンス化している．インスタンス化した rb に対して RuleBase クラスの backwardChain() メソッドを使用して後向き推論を実行する．そしてbackwardChain() メソッドの戻り値として返されたクラス ArrayList 型の変数 theFired を用いて質問の形式に合わせた適切な応答文を生成して出力している．
+</p>
+<pre class="brush: java">
+public static void backward(String wmFileName, String rbFileName, String hypothesis, String que, int mode) {
+  fm = new FileManager();
+  ArrayList&ltRule&gt rules = fm.loadRules(rbFileName);
+  //ArrayList rules = fm.loadRules("AnimalWorld.data");
+  ArrayList&ltString&gt wm = fm.loadWm(wmFileName);
+  //ArrayList wm    = fm.loadWm("AnimalWorldWm.data");
+  rb = new RuleBase(rules, wm);
+//  System.out.println(rb.wm.toString()); // 数字に対してエラーをはく
+  StringTokenizer st = new StringTokenizer(hypothesis, ",");
+  ArrayList&ltString&gt queries = new ArrayList&ltString&gt();
+  for (int i = 0; i < st.countTokens(); ) {
+    queries.add(st.nextToken());
+  }
+  ArrayList&ltString&gt theFired = rb.backwardChain(queries); // 後向き推論の実行
+  if (mode != 1) {
+    que = theFired.get(0).substring(0, theFired.get(0).indexOf(" ")) + que;
+  }
+  System.out.println(que);
+  if (mode == 1) {
+    String subject = hypothesis.substring(8); // 主語を取得
+    System.out.println(subject);
+    for (String s : theFired) {
+      if (!s.substring(s.indexOf(" is ") + 1).equals(hypothesis.substring(hypothesis.indexOf(" is ") + 1))) { // theFiredの末尾にはhypothesisが入っている
+        if (s.contains(" is ")) { // ~ is ~ という形式のアサーションのみ出力
+          String ans = subject + s.substring(s.indexOf(" is "));
+          System.out.println(ans);
+        }
+      }
+    }
+//    if (theFired.contains(que)) {
+//      System.out.println("Exists");
+//    } else {
+//      System.out.println("Not Exists");
+//    }
+  } else if (mode == 2) {
+    Pattern patSubject = Pattern.compile(que.substring(0, que.indexOf("has") + 3));
+    System.out.println(patSubject);
+    Pattern patObject = Pattern.compile(que.substring(que.indexOf("has") + 4));
+    System.out.println(patObject);
+    for (String s : theFired) {
+      Matcher matSubject = patSubject.matcher(s);
+      if (matSubject.find()) {
+        System.out.println("success");
+        Matcher matObject = patObject.matcher(s);
+        if (matObject.find()) {
+          System.out.println("Exists");
+        } else {
+          System.out.println("Not Exists");
+        }
+      }
+    }
+  } else if (mode == 3) {
+    Pattern patSubject = Pattern.compile(que.substring(0, que.indexOf("is") + 3));
+    System.out.println(patSubject);
+    Pattern patObject = Pattern.compile(que.substring(que.indexOf("is") + 4));
+    System.out.println(patObject);
+    for (String s : theFired) {
+      Matcher matSubject = patSubject.matcher(s);
+      if (matSubject.find()) {
+        System.out.println("success");
+        Matcher matObject = patObject.matcher(s);
+        if (matObject.find()) {
+          System.out.println("Exists");
+        } else {
+          System.out.println("Not Exists");
+        }
+      }
+    }
+  } else if (mode == 4) {
+    Pattern patSubject = Pattern.compile(que.substring(0, que.indexOf("has") + 3));
+    System.out.println(patSubject);
+    Pattern patObject = Pattern.compile(que.substring(que.indexOf("has") + 4));
+    System.out.println(patObject);
+    for (String s : theFired) {
+      Matcher matSubject = patSubject.matcher(s);
+      if (matSubject.find()) {
+        System.out.println("success");
+        Matcher matObject = patObject.matcher(s);
+        if (matObject.find()) {
+          System.out.println("Exists");
+          s = s.replaceAll(patSubject.toString(), "");
+          s = s.replaceAll("-" + patObject.toString(), "");
+          s = s.replaceAll(" ", "");
+          System.out.println(s);
+        } else {
+           System.out.println("Not Exists");
+        }
+      }
+    }
+  }
+}
+</pre>
+<p>
+  下記は makegraph() メソッドの実装である．ここで特筆すべき点は，GraphVizを使用して後ろ向き推論の推論過程を描画するためのdotファイルを記述していることである．dotファイルを元にした描画は GraphViz クラスの writeGraphToFile() メソッドを使用して行っている．描画した推論過程はback1.pngとして /workspace/BackwardChain の下に保存される．
+</p>
+<pre class="brush: java">
+  public static void makegraph() {
+
+      GraphViz gv = new GraphViz();
+      gv.addln(gv.start_graph());
+      ArrayList<String> l = RuleBase.graph;
+      for (String l1 : l) {
+          gv.addln(l1);
+      }
+      ArrayList<String> list = RuleBase.graph1;
+      for (String l2 : list) {
+          gv.addln(l2);
+      }
+
+      gv.addln(gv.end_graph());
+      //System.out.println(gv.getDotSource());
+      String type = "png";
+      File out = new File("back1." + type); // out.gif in this example
+      gv.writeGraphToFile(gv.getGraph(gv.getDotSource(), type), out);
+  }
+</pre>
+
+<h4>RuleBaseクラス</h4>
+<p>
+  続いて，先に挙げた RuleBase クラスが持つ コンストラクタ, backwardChain(), matchingPatterns(), matchingPatternOne(), rename(), instantiate(), var() メソッドの説明を行う．
+</p>
+<p>
+  コンストラクタについて特筆すべき点は，ワーキングメモリを表すクラス ArrayList 型の wm と，ルールベースを表すクラス ArrayList 型の rules をインスタンス化していることである．
+</p>
+<p>
+  backwardChain() メソッドについて特筆すべき点は，質問に対する応答文の生成の際に使用するために，発火したルールとアサーションが格納されているクラス ArrayList 型の変数 theFired を返していることである．
+</p>
+<p>
+  下記は matchingPatterns() メソッドの実装である．ここで特筆すべき点は，int 型の変数 cPoint によって，現在どのワーキングメモリエレメントまたはどのルールとのマッチングを試行しているかを一時的に格納していることである．ワーキングメモリエレメントとルールに番号付けがされている．また，再帰的定義を使用して，与えられた全ての仮説とマッチするワーキングメモリのアサーションやルールの後件に対する変数束縛情報を，引数として与えられたクラス ArrayList 型の theBinding に格納している．後向き推論の推論過程を描画するためのクラス ArrayList 型の変数への操作も状況に応じて行われている．
+</p>
+<pre class="brush: java">
+  private boolean matchingPatterns(ArrayList<String> thePatterns, HashMap<String, String> theBinding, ArrayList<String> theFired) {
+      String firstPattern;
+      if (thePatterns.size() == 1) {
+          firstPattern = (String) thePatterns.get(0);
+          if (matchingPatternOne(firstPattern, theBinding, 0, theFired) != -1) {
+              return true;
+          } else {
+              return false;
+          }
+      } else {
+          firstPattern = (String) thePatterns.get(0);
+          thePatterns.remove(0);
+
+          int cPoint = 0; // choice point
+          while (cPoint < wm.size() + rules.size()) {
+              // 元のバインディングを取っておく
+              HashMap<String, String> orgBinding = new HashMap<String, String>();
+              for (Iterator<String> i = theBinding.keySet().iterator(); i.hasNext(); ) {
+                  String key = i.next();
+                  String value = (String) theBinding.get(key);
+                  orgBinding.put(key, value);
+              }
+              ArrayList<String> orgFired = theFired; // 元のtheFiredを取っておく
+              //元のノード関係をとっておく
+              oldgraph2.clear();
+              oldgraph3.clear();
+              for (String l : oldgraph) {
+                  oldgraph2.add(l);
+              }
+              for (String l : oldgraph1) {
+                  oldgraph3.add(l);
+              }
+              int tmpPoint = matchingPatternOne(firstPattern, theBinding, cPoint, theFired);
+              System.out.println("tmpPoint: " + tmpPoint);
+              if (tmpPoint != -1) {
+                  System.out.println("Success:" + firstPattern);
+                  theFired.add(firstPattern); // 途中のアサーションをtheFiredに追加
+                  System.out.println("thePatterns: " + thePatterns.toString());
+                  System.out.println("theFired: " + theFired);
+                  if (matchingPatterns(thePatterns, theBinding, theFired)) {
+                      //成功
+                      System.out.println("Success");
+//                        ansFired = theFired;
+                      return true;
+                  } else {
+                      //失敗
+                      //choiceポイントを進める
+                      cPoint = tmpPoint;
+                      // 失敗したのでバインディングを戻す
+                      theBinding.clear();
+                      for (Iterator<String> i = orgBinding.keySet().iterator(); i.hasNext(); ) {
+                          String key = i.next();
+                          String value = orgBinding.get(key);
+                          theBinding.put(key, value);
+                      }
+//                        theFired = orgFired; // 失敗したら元に戻す
+                      theFired.clear();
+                      //ノード関係の復元
+                      oldgraph.clear();
+                      oldgraph1.clear();
+                      for (String l : oldgraph2) {
+                          oldgraph.add(l);
+                      }
+                      for (String l : oldgraph3) {
+                          oldgraph1.add(l);
+                      }
+                  }
+              } else {
+                  // 失敗したのでバインディングを戻す
+                  theBinding.clear();
+                  for (Iterator<String> i = orgBinding.keySet().iterator(); i.hasNext(); ) {
+                      String key = i.next();
+                      String value = orgBinding.get(key);
+                      theBinding.put(key, value);
+                  }
+                  theFired.clear();
+                  //ノード関係の復元
+                  oldgraph.clear();
+                  oldgraph1.clear();
+                  for (String l : oldgraph2) {
+                      oldgraph.add(l);
+                  }
+                  for (String l : oldgraph3) {
+                      oldgraph1.add(l);
+                  }
+                  return false;
+              }
+          }
+          return false;
+      /*
+      if(matchingPatternOne(firstPattern,theBinding)){
+      return matchingPatterns(thePatterns,theBinding);
+    } else {
+      return false;
+    }
+    */
+      }
+  }
+</pre>
+<p>
+  下記は matchingPatternOne() メソッドの実装である．ここで特筆すべき点は，後向き推論の特徴であるバックトラックの機能を，再帰的なメソッド呼び出しによって実現していることである．matchingPatterns() メソッドを再帰的な呼び出しによって，関数呼び出しのためのスタックを利用したバックトラックの処理が実現される．バックトラックによって変数束縛の情報，発火したアサーションとルールの情報，推論過程を描画するためのリストの情報が一つ前の推論ステップにおける状態に戻される．
+</p>
+<pre class="brush: java">
+  private int matchingPatternOne(String thePattern, HashMap<String, String> theBinding, int cPoint, ArrayList<String> theFired) {
+      if (cPoint < wm.size()) {
+          // WME(Working Memory Elements) と Unify してみる．
+          for (int i = cPoint; i < wm.size(); i++) {
+              if ((new Unifier()).unify(thePattern, (String) wm.get(i), theBinding)) {
+                  System.out.println("Success WM");
+                  System.out.println((String) wm.get(i) + " <=> " + thePattern);
+                  theFired.add(wm.get(i)); // 発火したアサーションを追加
+                  System.out.println("theFired: " + theFired.toString());
+                  String m = "";
+                  String label = "[label =\"" + thePattern + "\"]";
+                  String m1 = "";
+                  boolean check = false;
+                  for (String l : name) {
+                      if (label.equals(l)) {
+                          check = true;
+                      }
+                  }
+                  if (check) {
+                      m = "\"" + hash.get(label) + "\"" + label;
+                      m1 = hash.get(label);
+                  } else {
+                      m = "\"b" + Integer.toString(count) + "\"" + "[label=\"" + thePattern + "\"]";
+                      m1 = "b" + Integer.toString(count);
+                  }
+                  String n = "\"d" + Integer.toString(count) + "\"" + "[label =\"" + (String) wm.get(i) + "\"]";
+
+                  graph.add(m + "->" + n);
+                  graph1.add(m1 + "->" + "d" + Integer.toString(count));
+                  count++;
+                  return i + 1;
+              }
+          }
+      }
+      if (cPoint < wm.size() + rules.size()) {
+          // Ruleと Unify してみる．
+          for (int i = cPoint; i < rules.size(); i++) {
+              Rule aRule = rename((Rule) rules.get(i));
+              // 元のバインディングを取っておく．
+              HashMap<String, String> orgBinding = new HashMap<String, String>();
+              for (Iterator<String> itr = theBinding.keySet().iterator(); itr.hasNext(); ) {
+                  String key = itr.next();
+                  String value = theBinding.get(key);
+                  orgBinding.put(key, value);
+              }
+              ArrayList<String> orgFired = theFired; // 元のtheFiredを取っておく
+              if ((new Unifier()).unify(thePattern, (String) aRule.getConsequent(), theBinding)) {
+                  System.out.println("Success RULE");
+                  System.out.println("Rule:" + aRule + " <=> " + thePattern);
+                  ArrayList<String> antecedents = aRule.getAntecedents();
+                  String consequent = aRule.getConsequent();
+                  String m = "";
+                  String label = "[label =\"" + thePattern + "\"]";
+                  String m1 = "";
+                  boolean check = false;
+                  for (String l : name) {
+                      if (label.equals(l)) {
+                          check = true;
+                      }
+                  }
+                  if (check) {
+                      m = "\"" + hash.get(label) + "\"" + label;
+                      m1 = hash.get(label);
+                  } else {
+                      m = "\"b" + Integer.toString(count) + "\"" + "[label=\"" + thePattern + "\"]";
+                      m1 = "b" + Integer.toString(count);
+                  }
+                  String n = "\"a" + Integer.toString(count) + "\"[shape=record,label=\"{" + aRule.getName() + "|if";
+                  String a = "a" + Integer.toString(count);
+                  for (String l : antecedents) {
+                      n += l + "|";
+                  }
+                  n += "then" + consequent;
+                  n += "}\"]";
+                  System.out.println(n);
+                  oldgraph.clear();
+                  oldgraph1.clear();
+                  for (String l : graph) {
+                      oldgraph.add(l);
+                  }
+                  for (String l : graph1) {
+                      oldgraph1.add(l);
+                  }
+                  graph.add(m + "->" + n);
+                  graph1.add(m1 + "->" + a);
+                  for (String n1 : antecedents) {
+                      String n2 = "\"c" + Integer.toString(count) + "\"" + "[label=\"" + n1 + "\"]";
+                      name.add("[label =\"" + n1 + "\"]");
+                      hash.put("[label =\"" + n1 + "\"]", "c" + Integer.toString(count));
+                      graph1.add(a + "->" + "c" + Integer.toString(count));
+                      count++;
+                      graph.add(n + "->" + n2);
+                  }
+                  // さらにbackwardChaining
+                  ArrayList<String> newPatterns = aRule.getAntecedents();
+                  System.out.println("newPatterns: " + newPatterns.toString());
+                  System.out.println("theBinding: " + theBinding);
+                  if (matchingPatterns(newPatterns, theBinding, theFired)) {
+                      return wm.size() + i + 1;
+                  } else {
+                      // 失敗したら元に戻す．
+                      theBinding.clear();
+                      for (Iterator<String> itr = orgBinding.keySet().iterator(); itr.hasNext(); ) {
+                          String key = itr.next();
+                          String value = orgBinding.get(key);
+                          theBinding.put(key, value);
+                      }
+//                        theFired = orgFired; // 失敗したら元に戻す
+                      theFired.clear();
+                      graph.clear();
+                      graph1.clear();
+                      for (String l : oldgraph) {
+                          graph.add(l);
+                      }
+                      for (String l : oldgraph1) {
+                          graph1.add(l);
+                      }
+                  }
+              }
+          }
+      }
+      return -1;
+  }
+</pre>
+<p>
+  rename() メソッド について特筆すべき点は，Rule クラスの getRenamedRule() メソッドを呼び出すことによって，引数として与えられたルールの中に含まれる変数をユニークな名前の変数に置き換えていることである．ユニークな名前を生成するために唯一の番号 uniqueNum を生成し，それを getRenamedRule() メソッドに引数として渡している．
+</p>
+<p>
+  instantiate() メソッドについて特筆すべき点は，引数として与えられた thePattern を変数束縛情報 theBindings に従って具体化する際に，文字列 thePattern を StringTokenizer クラスのコンストラクタの引数として与えることでトークンに分け，各々のトークンが変数ならば変数束縛情報 theBindings からその値を取得し，変数でなければそのまま出力していることである．
+</p>
+<p>
+  vars() メソッドについて特筆すべき点は，引数として与えられた str1 の先頭が ? なら変数として true を返していることである．
+</p>
+
+<h4>FileManagerクラス</h4>
+<p>
+  続いて，先に挙げた FileManager クラスが持つ loadRules(), loadWm() メソッドの説明を行う．
+</p>
+<p>
+  loadRules() メソッドについて特筆すべき点は，実装上のルールの表現形式に基づいてルールの読み込みを行っていることである．FileReader() メソッドによってファイルのストリームを受け取り，そのストリームに基づき StreamTokenizer を生成し，トークンごとにswitch文で場合分けしている．
+</p>
+<p>
+  loadWm() メソッドについて特筆すべき点は，loadRules() メソッドと同様に，実装上のワーキングメモリエレメントであるアサーションの表現形式に基づいてルールの読み込みを行っていることである．FileReader() メソッドによってファイルのストリームを受け取り，そのストリームに基づき StreamTokenizer を生成し，トークンごとに改行が起こるまで1文字分のスペースを空けながらつなげていく．
+</p>
+
+<h4>Ruleクラス</h4>
+<p>
+  続いて，先に挙げた Rule クラスが持つ コンストラクタ, getRenamedRule(), getVars(), makeRenamedVarsTable(), renameVars(), var(), getName(), toString(), getAntecedents(), getConsequent() メソッドの説明を行う．
+</p>
+<p>
+  コンストラクタ について特筆すべき点は，ルールの名前を表すクラス String 型の name と，ルールの前件を表すクラス ArrayList 型の antecedents と，ルールの後件を表すクラス ArrayList 型の consequent をインスタンス化していることである．
+</p>
+<p>
+  getRenamedRule() メソッドについて特筆すべき点は，ルールに含まれる変数を前件を表すクラス ArrayList 型の antecedents と後件を表すクラス String 型の consequent から getVars() メソッドを用いて全て取り出し，makeRenamedVarsTable() メソッドを用いて各変数に対応した新たな変数名を生成し，その対応関係をクラス HashMap 型の renamedVarsTable に格納していることである．そのようにして得た renamedVarsTable に従い，renameVars() メソッドを用いて書き換えたルールを戻り値として返している．
+</p>
+<p>
+  getVars() メソッドについて特筆すべき点は，引数として得たクラス String 型の thePattern をトークンに分け，各トークンが変数ならばそれをクラス ArrayList 型の vars に加えていき，最後に戻り値として vars を返していることである．
+</p>
+<p>
+  makeRenamedVarsTable() メソッドについて特筆すべき点は，引数として得たクラス ArrayList 型の vars と int 型の uniqueNum を基に新たな変数を生成し，元の変数と新たな変数の対応をクラス HashMap 型の result として保管し，最後に戻り値として result を返していることである．
+</p>
+<p>
+  renameVars() メソッドについて特筆すべき点は，引数として得たクラス String 型の thePattern をトークンに分け，各トークンに関してトークンが変数であれば引数として得たクラス HashMap 型の renamedVarsTable を基にして変数を書き換え，変数でなければそのままにしていることである．
+</p>
+<p>
+  var() メソッドについて特筆すべき点は，引数として与えられた str の先頭が ? なら変数として true を返していることである．
+</p>
+<p>
+  getName(), toString(), getAntecedents(), getConsequent() メソッドについて特筆すべき点は，メソッド名からどんな操作をするのかが一目でわかることである．
+</p>
+
+<h4>Unifierクラス</h4>
+<p>
+  続いて，先に挙げた Unifier クラスが持つコンストラクタ, 3引数のunify(), 2引数のunify(), tokenMatching(), varMatching(), replaceBuffer(), replaceBindings(), var() メソッドの説明を行う．
+</p>
+<p>
+  コンストラクタについて特筆すべき点は，パターンマッチングの課題で使用した際とは異なり，クラス HashMap 型の vars をインスタンス化してしていないことである．
+</p>
+<p>
+  3引数のunify() メソッドについて特筆すべき点は，引数として得たクラス HashMap 型の theBindings を初期の変数束縛情報としてもつことができるようになっていることである．変数束縛情報について初期値をもっているために，unify() メソッドの実行が進行し失敗したら，変数束縛情報を初期値に戻す必要があるため，変数束縛情報をクラス HashMap 型の orgBindings として保存してから 2引数のunify() メソッドを実行する．もし失敗したら，変数束縛情報を元の初期値に戻す操作を実行する．
+</p>
+<p>
+  2引数のunify() メソッドについて特筆すべき点は，引数として得たクラス String 型の string1 と，クラス String 型の string2が同じなら true を返し，異なれば各々トークンに分けてパターンマッチングを行っていることである．初期値として変数束縛情報が与えられていたら，その変数束縛情報に基づいてトークンを具体化している．
+</p>
+<p>
+  tokenMatching() メソッドについて特筆すべき点は，引数として得たクラス String 型の token1 と，クラス String 型の token2 が等しければ true を返し，varMatching() メソッドの引数として与えた結果が成功したら true を返し，失敗したら false を返していることである．
+</p>
+<p>
+  varMatching() メソッドについて特筆すべき点は，Unifier クラスのインスタンスの変数束縛情報が保管されている vars に引数として与えられたクラス String 型の vartoken がキーとして含まれている場合といない場合の場合分けがされていることである．vartoken がキーとして含まれていない場合は replaceBindings() メソッドを使用して，さらに vartoken がキー値として含まれている場合は replaceBindings() メソッドを使用している．
+</p>
+<p>
+  replaceBuffer() メソッドについて特筆すべき点は，forループにより1つ目の引数として与えられたクラス String 型の変数 preString と同じ名前の変数が配列 buffer1, buffer2 中に存在するかを走査し，もし存在すればその変数を2つ目の引数として与えられたクラス String 型の変数 postString に置き換えていることである．
+</p>
+<p>
+  replaceBindings() メソッドについて特筆すべき点は，クラス Iterator 型の変数 keys をforループのイテレータとして使用していることである．Iteratorクラスの使用により，処理速度を向上させている．forループ内では1つ目の引数として与えられたクラス String 型の変数 preString をハッシュ値に持つキーがあれば，そのキーのハッシュ値を2つ目の引数として与えられたクラス String 型の変数 postString に変更するという操作を行なっている
+</p>
+<p>
+  var() メソッドについて特筆すべき点は，Stringクラスの startsWith() メソッドを使用して，引数として与えられたクラス String 型の変数 str1 がパターンマッチングにおける変数かどうか確かめ，変数ならtrueを，そうでないならfalseを返している点である．
+</p>
+
+
+<h3>実行例</h3>
+<!-- 実行例を示す．PNGやGIF等の絵を張っても良い．-->
+<p>
+  calcFibo() メソッドの戻り値を標準出力に出力した結果を下図に示す．
+</p>
+
+<!-- 画像ファイルを貼る場合は <img> タグを使う -->
+<img src="./hoge/image.png"/>
+
+<p>
+  今回は0, 1番目のフィボナッチ数を1としたため，図で表したように calcFibo() の引数に5を与えた時は8となるのが正しい動作である．……
+</p>
+
+<h2>課題1-2</h2>
+<!-- 以下，上記と同様 -->
+(以下同様)
+
+<h2>考察</h2>
+<!--
+ 考察を書く．PNGやGIF等の絵を張っても良い．
+ 例: 自分で工夫して解決した点，その解決手法，なぜそうしたのか，その手法の素晴らしさ，上手くいかなかった点，なぜ上手くいかなかったのか，など．
+ 例: 今回はできなかったが，更に〜の機能を追加すべきである．なぜなら，...
+-->
+<p>
+  今回，フィボナッチ数をもとめるためのクラス Fibonacci を実装し，インスタンスメソッドとして機能を実装したが，
+  これは静的クラス，または，シングルトンとして実装した方が適していたように考えられる．
+  なぜなら……
+</p>
+
+
+<hr>
+
+
+<h2>感想</h2>
+<!-- 感想を書く．-->
+<!-- 例: 〜が面白かった，〜がわからなかった，〜を作ってみたい，講義・演習に関する要望，など．-->
+<p>
+  フィボナッチ数の一般項をもとめるのに夢中であやうく実装が間に合わなくなるところだった．
+  実装に関しては……
+</p>
+
+
+<h2>参考文献</h2>
+<!-- 参考文献を書く．助けてもらった人がいれば，それも書く-->
+
+<ul>
+  <li>2XXXXXXX 東工太郎君</li>
+  <li>新谷虎松 著（2014）『Javaによる知能プログラミング入門』コロナ社
+</ul>
+
+</body>
+</html>
